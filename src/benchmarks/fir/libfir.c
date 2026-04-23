@@ -21,9 +21,6 @@
 
    You should have received a copy of the GNU General Public License
    along with this program. If not, see <http://www.gnu.org/licenses/>. */
-
-#include "../../support.h"
-
 /* This scale factor will be changed to equalise the runtime of the
    benchmarks. */
 #define SCALE_FACTOR    (REPEAT_FACTOR >> 0)

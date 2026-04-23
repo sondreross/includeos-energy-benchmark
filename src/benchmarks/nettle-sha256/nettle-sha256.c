@@ -27,7 +27,6 @@
 #include <string.h>
 #include <assert.h>
 #include <stdbool.h>
-#include "../../support.h"
 
 /* This scale factor will be changed to equalise the runtime of the
    benchmarks. */

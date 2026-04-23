@@ -26,8 +26,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../../support.h"
-
 /* This scale factor will be changed to equalise the runtime of the
    benchmarks. */
 #define SCALE_FACTOR    (REPEAT_FACTOR >> 9)

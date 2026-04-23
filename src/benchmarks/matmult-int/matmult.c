@@ -42,8 +42,6 @@
  * This is a program that was developed from mm.c to matmult.c by
  * Thomas Lundqvist at Chalmers.
  *----------------------------------------------------------------------*/
-
-#include "../../support.h"
 /* This scale factor will be changed to equalise the runtime of the
    benchmarks. */
 

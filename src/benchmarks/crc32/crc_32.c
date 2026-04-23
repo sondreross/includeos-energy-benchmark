@@ -19,8 +19,6 @@
 
 /* Crc - 32 BIT ANSI X3.66 CRC checksum files */
 
-#include "../../support.h"
-
 /* This scale factor will be changed to equalise the runtime of the
    benchmarks. */
 #define SCALE_FACTOR    (REPEAT_FACTOR >> 5)

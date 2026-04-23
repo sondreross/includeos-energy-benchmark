@@ -44,7 +44,6 @@
  *----------------------------------------------------------------------*/
 #include <math.h>
 
-#include "../../support.h"
 /* This scale factor will be changed to equalise the runtime of the
    benchmarks. */
 
