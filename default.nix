@@ -20,7 +20,8 @@ stdenv.mkDerivation {
   name = "FrequencyScalingTool";
   version = "dev";
 
-  src = ./src/unikernel;
+  src = ./src;
+  sourceRoot = "src/unikernel";
 
   nativeBuildInputs = includeos.nativeBuildInputs ++ [ pkgs.grub2 pkgs.xorriso ];
 
