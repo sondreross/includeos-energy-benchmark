@@ -1,6 +1,5 @@
 #include <os>
 #include <service>
-#include <energy_bench>
 #include <delegate>
 #include <vector>
 #include <cstdlib>
@@ -15,15 +14,15 @@
 
 // Include all benchmark headers
 extern "C" {
-#include "../../benchmarks/crc32/crc32.h"
-#include "../../benchmarks/cubic/cubic.h"
-#include "../../benchmarks/dijkstra/dijkstra.h"
-#include "../../benchmarks/fdct/fdct.h"
-#include "../../benchmarks/fir/fir.h"
-#include "../../benchmarks/matmult-float/matmult_float.h"
-#include "../../benchmarks/matmult-int/matmult_int.h"
-#include "../../benchmarks/nettle-sha256/nettle_sha256.h"
-#include "../../benchmarks/rijndael/rijndael.h"
+#include "../benchmarks/crc32/crc32.h"
+#include "../benchmarks/cubic/cubic.h"
+#include "../benchmarks/dijkstra/dijkstra.h"
+#include "../benchmarks/fdct/fdct.h"
+#include "../benchmarks/fir/fir.h"
+#include "../benchmarks/matmult-float/matmult_float.h"
+#include "../benchmarks/matmult-int/matmult_int.h"
+#include "../benchmarks/nettle-sha256/nettle_sha256.h"
+#include "../benchmarks/rijndael/rijndael.h"
 }
 
 // Array of benchmark functions
