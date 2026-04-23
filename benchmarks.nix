@@ -1,5 +1,5 @@
 {
-	pkgs ? import <nixpkgs> {},
+	pkgs ? import <nixpkgs> {}, # gets this from IncludeOS nixpkgs in default
 	shortBench ? false,
 }:
 
