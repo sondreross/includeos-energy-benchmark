@@ -13,11 +13,11 @@ if(NOT BENCHMARK_STATIC_LIB)
 endif()
 
 os_add_executable(hello_includeos "Hello world - OS included" src/main.cpp)
-os_link_libraries(hello_includeos PRIVATE ${BENCHMARK_STATIC_LIB})
+os_link_libraries(hello_includeos ${BENCHMARK_STATIC_LIB})
 os_add_stdout(hello_includeos default_stdout)
 
 # This would be for application specific libs.
-#os_link_libraries(hello_includeos PRIVATE your_custom_lib)
+#os_link_libraries(hello_includeos your_custom_lib)
 
 
 # TODO: remove or hide the ELF_POSTFIX.
