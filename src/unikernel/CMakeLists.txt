@@ -12,7 +12,7 @@ if(NOT BENCHMARK_STATIC_LIB)
     message(FATAL_ERROR "BENCHMARK_STATIC_LIB must be set to the static benchmarks library path")
 endif()
 
-os_add_executable(hello_includeos "Hello world - OS included" src/main.cpp)
+os_add_executable(hello_includeos "Hello world - OS included" main.cpp)
 os_link_libraries(hello_includeos ${BENCHMARK_STATIC_LIB})
 os_add_stdout(hello_includeos default_stdout)
 
