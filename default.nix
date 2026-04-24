@@ -45,7 +45,7 @@ stdenv.mkDerivation {
 
   postInstall = ''
     bash ${./create-iso.sh}
-    cp freq_profiling.iso $out/
+    cp frequency_scaling_tool.iso $out/
   '';
 
 }
