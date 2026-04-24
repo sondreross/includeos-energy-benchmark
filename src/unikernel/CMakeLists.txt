@@ -17,13 +17,34 @@ if(NOT BENCHMARK_STATIC_LIB)
     message(FATAL_ERROR "BENCHMARK_STATIC_LIB must be set to the static benchmarks library path")
 endif()
 
-os_add_executable(frequency_scaling_tool "Frequency scaling tool" main.cpp)
-target_compile_definitions(frequency_scaling_tool PRIVATE
-    MEASURE_DOMAIN_PKG=$<BOOL:${MEASURE_DOMAIN_PKG}>
-    MEASURE_DOMAIN_DRAM=$<BOOL:${MEASURE_DOMAIN_DRAM}>
-    MEASURE_DOMAIN_PP0=$<BOOL:${MEASURE_DOMAIN_PP0}>
-    MEASURE_DOMAIN_PP1=$<BOOL:${MEASURE_DOMAIN_PP1}>
+set(MEASURE_DOMAIN_PKG_VALUE 0)
+if(MEASURE_DOMAIN_PKG)
+    set(MEASURE_DOMAIN_PKG_VALUE 1)
+endif()
+
+set(MEASURE_DOMAIN_DRAM_VALUE 0)
+if(MEASURE_DOMAIN_DRAM)
+    set(MEASURE_DOMAIN_DRAM_VALUE 1)
+endif()
+
+set(MEASURE_DOMAIN_PP0_VALUE 0)
+if(MEASURE_DOMAIN_PP0)
+    set(MEASURE_DOMAIN_PP0_VALUE 1)
+endif()
+
+set(MEASURE_DOMAIN_PP1_VALUE 0)
+if(MEASURE_DOMAIN_PP1)
+    set(MEASURE_DOMAIN_PP1_VALUE 1)
+endif()
+
+add_compile_definitions(
+    MEASURE_DOMAIN_PKG=${MEASURE_DOMAIN_PKG_VALUE}
+    MEASURE_DOMAIN_DRAM=${MEASURE_DOMAIN_DRAM_VALUE}
+    MEASURE_DOMAIN_PP0=${MEASURE_DOMAIN_PP0_VALUE}
+    MEASURE_DOMAIN_PP1=${MEASURE_DOMAIN_PP1_VALUE}
 )
+
+os_add_executable(frequency_scaling_tool "Frequency scaling tool" main.cpp)
 os_link_libraries(frequency_scaling_tool ${BENCHMARK_STATIC_LIB})
 os_add_stdout(frequency_scaling_tool default_stdout)
 
