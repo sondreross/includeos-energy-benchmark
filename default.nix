@@ -3,6 +3,10 @@
   smp ? false, # Enable SMP support
   workload ? "std_workload", # Workload to compile (default: std_workload)
   shortBench ? false, # Enable SHORT_BENCH for benchmark compilation
+  measurePkg ? true, # Measure PKG RAPL domain
+  measureDram ? false, # Measure DRAM RAPL domain
+  measurePp0 ? true, # Measure PP0 RAPL domain
+  measurePp1 ? true, # Measure PP1 RAPL domain
 
   includeos ? import (builtins.fetchGit {
         url = "https://github.com/includeos/IncludeOS.git";
@@ -33,6 +37,10 @@ stdenv.mkDerivation {
   cmakeFlags = [
     "-DWORKLOAD=${workload}"
     "-DBENCHMARK_STATIC_LIB=${benchmarks}/lib/libenergy_benchmarks.a"
+    "-DMEASURE_DOMAIN_PKG=${if measurePkg then "ON" else "OFF"}"
+    "-DMEASURE_DOMAIN_DRAM=${if measureDram then "ON" else "OFF"}"
+    "-DMEASURE_DOMAIN_PP0=${if measurePp0 then "ON" else "OFF"}"
+    "-DMEASURE_DOMAIN_PP1=${if measurePp1 then "ON" else "OFF"}"
   ];
 
   postInstall = ''

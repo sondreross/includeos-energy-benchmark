@@ -8,11 +8,22 @@ include(os)
 
 set(BENCHMARK_STATIC_LIB "" CACHE FILEPATH "Path to libenergy_benchmarks.a")
 
+option(MEASURE_DOMAIN_PKG "Measure PKG RAPL domain" ON)
+option(MEASURE_DOMAIN_DRAM "Measure DRAM RAPL domain" OFF)
+option(MEASURE_DOMAIN_PP0 "Measure PP0 RAPL domain" ON)
+option(MEASURE_DOMAIN_PP1 "Measure PP1 RAPL domain" ON)
+
 if(NOT BENCHMARK_STATIC_LIB)
     message(FATAL_ERROR "BENCHMARK_STATIC_LIB must be set to the static benchmarks library path")
 endif()
 
 os_add_executable(hello_includeos "Hello world - OS included" main.cpp)
+target_compile_definitions(hello_includeos PRIVATE
+    MEASURE_DOMAIN_PKG=$<BOOL:${MEASURE_DOMAIN_PKG}>
+    MEASURE_DOMAIN_DRAM=$<BOOL:${MEASURE_DOMAIN_DRAM}>
+    MEASURE_DOMAIN_PP0=$<BOOL:${MEASURE_DOMAIN_PP0}>
+    MEASURE_DOMAIN_PP1=$<BOOL:${MEASURE_DOMAIN_PP1}>
+)
 os_link_libraries(hello_includeos ${BENCHMARK_STATIC_LIB})
 os_add_stdout(hello_includeos default_stdout)
 

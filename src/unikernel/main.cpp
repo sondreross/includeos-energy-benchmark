@@ -25,6 +25,34 @@ extern "C" {
 #include "../benchmarks/rijndael/rijndael.h"
 }
 
+#define IA32_PACKAGE_THERM_STATUS 0x1B1
+#define IA32_THERM_STATUS         0x19C
+#define MSR_TEMPERATURE_TARGET    0x1A2
+
+#define MSR_RAPL_POWER_UNIT       0x606
+#define MSR_PKG_ENERGY_STATUS     0x611
+#define MSR_PKG_POWER_INFO        0x614
+#define MSR_DRAM_ENERGY_STATUS    0x619
+#define MSR_DRAM_POWER_INFO       0x61C
+#define MSR_PP0_ENERGY_STATUS     0x639
+#define MSR_PP1_ENERGY_STATUS     0x641
+
+#ifndef MEASURE_DOMAIN_PKG
+#define MEASURE_DOMAIN_PKG 1
+#endif
+
+#ifndef MEASURE_DOMAIN_DRAM
+#define MEASURE_DOMAIN_DRAM 0
+#endif
+
+#ifndef MEASURE_DOMAIN_PP0
+#define MEASURE_DOMAIN_PP0 1
+#endif
+
+#ifndef MEASURE_DOMAIN_PP1
+#define MEASURE_DOMAIN_PP1 1
+#endif
+
 // Array of benchmark functions
 typedef int (*benchmark_func_t)(void);
 typedef void (*init_func_t)(void);
@@ -112,7 +140,7 @@ uint64_t bench_function_single(delegate<void()> func)
     return energy_microjoules;
 }
 
-energy_result bench_function(void (*func)(), uint32_t domains)
+energy_result bench_function(void (*func)())
 {
     double energy_unit = get_rapl_units();
     energy_result result;
@@ -126,21 +154,17 @@ energy_result bench_function(void (*func)(), uint32_t domains)
     uint32_t therm_start = static_cast<uint32_t>((x86::CPU::read_msr(0x19C) >> 16) & 0x7F); // IA32_THERM_STATUS bits 22:16
     uint32_t pkg_therm_start = static_cast<uint32_t>((x86::CPU::read_msr(0x1B1) >> 16) & 0x7F); // IA32_PACKAGE_THERM_STATUS bits 22:16
     uint64_t start_ns = RTC::nanos_now();
-    if (domains & PKG) {
+    if (MEASURE_DOMAIN_PKG) {
         pkg_before = x86::CPU::read_msr(MSR_PKG_ENERGY_STATUS) & 0xFFFFFFFF;
-        result.measured_domains |= PKG;
     }
-    if (domains & DRAM) {
+    if (MEASURE_DOMAIN_DRAM) {
         dram_before = x86::CPU::read_msr(MSR_DRAM_ENERGY_STATUS) & 0xFFFFFFFF;
-        result.measured_domains |= DRAM;
     }
-    if (domains & PP0) {
+    if (MEASURE_DOMAIN_PP0) {
         pp0_before = x86::CPU::read_msr(MSR_PP0_ENERGY_STATUS) & 0xFFFFFFFF;
-        result.measured_domains |= PP0;
     }
-    if (domains & PP1) {
+    if (MEASURE_DOMAIN_PP1) {
         pp1_before = x86::CPU::read_msr(MSR_PP1_ENERGY_STATUS) & 0xFFFFFFFF;
-        result.measured_domains |= PP1;
     }
 
     // Capture start time (CPU cycles) using serialized RDTSC
@@ -153,22 +177,22 @@ energy_result bench_function(void (*func)(), uint32_t domains)
 
 
     // Calculate differences and convert to microjoules
-    if (domains & PKG) {
+    if (MEASURE_DOMAIN_PKG) {
         uint32_t pkg_after = x86::CPU::read_msr(MSR_PKG_ENERGY_STATUS) & 0xFFFFFFFF;
         uint32_t raw_diff = pkg_after - pkg_before;
         result.pkg_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
     }
-    if (domains & DRAM) {
+    if (MEASURE_DOMAIN_DRAM) {
         uint32_t dram_after = x86::CPU::read_msr(MSR_DRAM_ENERGY_STATUS) & 0xFFFFFFFF;
         uint32_t raw_diff = dram_after - dram_before;
         result.dram_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
     }
-    if (domains & PP0) {
+    if (MEASURE_DOMAIN_PP0) {
         uint32_t pp0_after = x86::CPU::read_msr(MSR_PP0_ENERGY_STATUS) & 0xFFFFFFFF;
         uint32_t raw_diff = pp0_after - pp0_before;
         result.pp0_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
     }
-    if (domains & PP1) {
+    if (MEASURE_DOMAIN_PP1) {
         uint32_t pp1_after = x86::CPU::read_msr(MSR_PP1_ENERGY_STATUS) & 0xFFFFFFFF;
         uint32_t raw_diff = pp1_after - pp1_before;
         result.pp1_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
@@ -260,10 +284,7 @@ void Service::start(const std::string&) {
             double cooldown_ms = wait_for_cooldown(45.0);
       
             benchmarks[b].init();
-            auto result = energy_bench::bench_function(
-                benchmarks[b].func,
-                energy_bench::PKG | energy_bench::PP0 | energy_bench::PP1
-            );
+            auto result = energy_bench::bench_function(benchmarks[b].func);
 
             double temp_before = result.therm_tcc - result.therm_start;
             double temp_after = result.therm_tcc - result.therm_end;
@@ -272,9 +293,10 @@ void Service::start(const std::string&) {
             double time_ns = result.nanos_elapsed;
             double time_ms = time_ns / 1e6;
             double pkg_joules = result.pkg_joules();
-            double pp0_joules = (result.measured_domains & energy_bench::PP0) ? result.pp0_joules() : 0.0;
-            double pp1_joules = (result.measured_domains & energy_bench::PP1) ? result.pp1_joules() : 0.0;
-            double total_joules = result.total_joules();
+            double pp0_joules = MEASURE_DOMAIN_PP0 ? result.pp0_joules() : 0.0;
+            double pp1_joules = MEASURE_DOMAIN_PP1 ? result.pp1_joules() : 0.0;
+            double dram_joules = MEASURE_DOMAIN_DRAM ? result.dram_joules() : 0.0;
+            double total_joules = pkg_joules + pp0_joules + pp1_joules + dram_joules;
 
             // Format and store CSV row
             char buffer[1024];
