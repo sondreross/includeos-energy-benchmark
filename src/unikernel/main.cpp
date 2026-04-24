@@ -123,98 +123,6 @@ double get_rapl_units() {
     return energy_unit_joules;
 }
 
-
-uint64_t bench_function_single(delegate<void()> func)
-{
-    double energy_unit = get_rapl_units();
-    uint32_t raw_before = x86::CPU::read_msr(MSR_PKG_ENERGY_STATUS) & 0xFFFFFFFF;
-
-    func();
-
-    uint32_t raw_after = x86::CPU::read_msr(MSR_PKG_ENERGY_STATUS) & 0xFFFFFFFF;
-
-    // Calculate difference first, then convert to microjoules
-    uint64_t raw_diff = raw_after - raw_before;
-    //TODO: Handle wrap-around
-    uint64_t energy_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
-    return energy_microjoules;
-}
-
-energy_result bench_function(void (*func)())
-{
-    double energy_unit = get_rapl_units();
-    energy_result result;
-
-    // Store raw "before" values (lower 32 bits only; upper 32 are reserved)
-    uint32_t pkg_before = 0, dram_before = 0, pp0_before = 0, pp1_before = 0;
-
-    // Read IA32_TEMPERATURE_TARGET (MSR 0x1A2) — bits 23:16 contain TjMax (temperature target)
-    uint64_t temp_target_msr = x86::CPU::read_msr(MSR_TEMPERATURE_TARGET);
-    uint8_t therm_max = static_cast<uint8_t>((temp_target_msr >> 16) & 0xFF);
-    uint32_t therm_start = static_cast<uint32_t>((x86::CPU::read_msr(0x19C) >> 16) & 0x7F); // IA32_THERM_STATUS bits 22:16
-    uint32_t pkg_therm_start = static_cast<uint32_t>((x86::CPU::read_msr(0x1B1) >> 16) & 0x7F); // IA32_PACKAGE_THERM_STATUS bits 22:16
-    uint64_t start_ns = RTC::nanos_now();
-    if (MEASURE_DOMAIN_PKG) {
-        pkg_before = x86::CPU::read_msr(MSR_PKG_ENERGY_STATUS) & 0xFFFFFFFF;
-    }
-    if (MEASURE_DOMAIN_DRAM) {
-        dram_before = x86::CPU::read_msr(MSR_DRAM_ENERGY_STATUS) & 0xFFFFFFFF;
-    }
-    if (MEASURE_DOMAIN_PP0) {
-        pp0_before = x86::CPU::read_msr(MSR_PP0_ENERGY_STATUS) & 0xFFFFFFFF;
-    }
-    if (MEASURE_DOMAIN_PP1) {
-        pp1_before = x86::CPU::read_msr(MSR_PP1_ENERGY_STATUS) & 0xFFFFFFFF;
-    }
-
-    // Capture start time (CPU cycles) using serialized RDTSC
-    volatile uint64_t start_cycles = rdtsc_start();
-
-    func();
-
-    // Capture end time (CPU cycles) using serialized RDTSCP
-    volatile uint64_t end_cycles = rdtsc_end();
-
-
-    // Calculate differences and convert to microjoules
-    if (MEASURE_DOMAIN_PKG) {
-        uint32_t pkg_after = x86::CPU::read_msr(MSR_PKG_ENERGY_STATUS) & 0xFFFFFFFF;
-        uint32_t raw_diff = pkg_after - pkg_before;
-        result.pkg_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
-    }
-    if (MEASURE_DOMAIN_DRAM) {
-        uint32_t dram_after = x86::CPU::read_msr(MSR_DRAM_ENERGY_STATUS) & 0xFFFFFFFF;
-        uint32_t raw_diff = dram_after - dram_before;
-        result.dram_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
-    }
-    if (MEASURE_DOMAIN_PP0) {
-        uint32_t pp0_after = x86::CPU::read_msr(MSR_PP0_ENERGY_STATUS) & 0xFFFFFFFF;
-        uint32_t raw_diff = pp0_after - pp0_before;
-        result.pp0_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
-    }
-    if (MEASURE_DOMAIN_PP1) {
-        uint32_t pp1_after = x86::CPU::read_msr(MSR_PP1_ENERGY_STATUS) & 0xFFFFFFFF;
-        uint32_t raw_diff = pp1_after - pp1_before;
-        result.pp1_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
-    }
-    uint64_t end_ns = RTC::nanos_now();
-
-    uint32_t therm_end = static_cast<uint32_t>((x86::CPU::read_msr(0x19C) >> 16) & 0x7F); // IA32_THERM_STATUS bits 22:16
-    uint32_t pkg_therm_end = static_cast<uint32_t>((x86::CPU::read_msr(0x1B1) >> 16) & 0x7F); // IA32_PACKAGE_THERM_STATUS bits 22:16
-
-    result.therm_tcc = static_cast<uint8_t>(therm_max);
-    result.therm_start = static_cast<uint8_t>(therm_start);
-    result.therm_end = static_cast<uint8_t>(therm_end);
-    result.pkg_therm_start = static_cast<uint8_t>(pkg_therm_start);
-    result.pkg_therm_end = static_cast<uint8_t>(pkg_therm_end);
-    result.cycles_start = start_cycles;
-    result.cycles_end = end_cycles;
-    result.cycles_elapsed = result.cycles_end - result.cycles_start;
-    result.nanos_elapsed = end_ns - start_ns;
-
-    return result;
-}
-
 } // namespace energy_bench
 
 // Check if RAPL is available
@@ -258,6 +166,7 @@ double wait_for_cooldown(double target_temp) {
 void Service::start(const std::string&) {
     const int repetitions = 50;
     std::vector<std::string> results;
+    const double energy_unit = energy_bench::get_rapl_units();
     
     // Warmup: Run first benchmark until CPU reaches target temperature (45°C)
     benchmarks[2].init();
@@ -284,18 +193,72 @@ void Service::start(const std::string&) {
             double cooldown_ms = wait_for_cooldown(45.0);
       
             benchmarks[b].init();
-            auto result = energy_bench::bench_function(benchmarks[b].func);
+            uint32_t pkg_before = 0, dram_before = 0, pp0_before = 0, pp1_before = 0;
 
-            double temp_before = result.therm_tcc - result.therm_start;
-            double temp_after = result.therm_tcc - result.therm_end;
-            double pkg_temp_before = result.therm_tcc - result.pkg_therm_start;
-            double pkg_temp_after = result.therm_tcc - result.pkg_therm_end;
-            double time_ns = result.nanos_elapsed;
+            uint64_t temp_target_msr = x86::CPU::read_msr(MSR_TEMPERATURE_TARGET);
+            uint8_t therm_max = static_cast<uint8_t>((temp_target_msr >> 16) & 0xFF);
+            uint32_t therm_start = static_cast<uint32_t>((x86::CPU::read_msr(0x19C) >> 16) & 0x7F);
+            uint32_t pkg_therm_start = static_cast<uint32_t>((x86::CPU::read_msr(0x1B1) >> 16) & 0x7F);
+            uint64_t start_ns = RTC::nanos_now();
+
+            if (MEASURE_DOMAIN_PKG) {
+                pkg_before = x86::CPU::read_msr(MSR_PKG_ENERGY_STATUS) & 0xFFFFFFFF;
+            }
+            if (MEASURE_DOMAIN_DRAM) {
+                dram_before = x86::CPU::read_msr(MSR_DRAM_ENERGY_STATUS) & 0xFFFFFFFF;
+            }
+            if (MEASURE_DOMAIN_PP0) {
+                pp0_before = x86::CPU::read_msr(MSR_PP0_ENERGY_STATUS) & 0xFFFFFFFF;
+            }
+            if (MEASURE_DOMAIN_PP1) {
+                pp1_before = x86::CPU::read_msr(MSR_PP1_ENERGY_STATUS) & 0xFFFFFFFF;
+            }
+
+            uint64_t cycles_start = energy_bench::rdtsc_start();
+            benchmarks[b].func();
+            uint64_t cycles_end = energy_bench::rdtsc_end();
+
+            uint64_t pkg_microjoules = 0;
+            uint64_t dram_microjoules = 0;
+            uint64_t pp0_microjoules = 0;
+            uint64_t pp1_microjoules = 0;
+
+            if (MEASURE_DOMAIN_PKG) {
+                uint32_t pkg_after = x86::CPU::read_msr(MSR_PKG_ENERGY_STATUS) & 0xFFFFFFFF;
+                uint32_t raw_diff = pkg_after - pkg_before;
+                pkg_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
+            }
+            if (MEASURE_DOMAIN_DRAM) {
+                uint32_t dram_after = x86::CPU::read_msr(MSR_DRAM_ENERGY_STATUS) & 0xFFFFFFFF;
+                uint32_t raw_diff = dram_after - dram_before;
+                dram_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
+            }
+            if (MEASURE_DOMAIN_PP0) {
+                uint32_t pp0_after = x86::CPU::read_msr(MSR_PP0_ENERGY_STATUS) & 0xFFFFFFFF;
+                uint32_t raw_diff = pp0_after - pp0_before;
+                pp0_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
+            }
+            if (MEASURE_DOMAIN_PP1) {
+                uint32_t pp1_after = x86::CPU::read_msr(MSR_PP1_ENERGY_STATUS) & 0xFFFFFFFF;
+                uint32_t raw_diff = pp1_after - pp1_before;
+                pp1_microjoules = static_cast<uint64_t>(raw_diff * energy_unit * 1000000.0);
+            }
+
+            uint64_t end_ns = RTC::nanos_now();
+            uint32_t therm_end = static_cast<uint32_t>((x86::CPU::read_msr(0x19C) >> 16) & 0x7F);
+            uint32_t pkg_therm_end = static_cast<uint32_t>((x86::CPU::read_msr(0x1B1) >> 16) & 0x7F);
+
+            uint64_t cycles_elapsed = cycles_end - cycles_start;
+            double temp_before = therm_max - therm_start;
+            double temp_after = therm_max - therm_end;
+            double pkg_temp_before = therm_max - pkg_therm_start;
+            double pkg_temp_after = therm_max - pkg_therm_end;
+            double time_ns = end_ns - start_ns;
             double time_ms = time_ns / 1e6;
-            double pkg_joules = result.pkg_joules();
-            double pp0_joules = MEASURE_DOMAIN_PP0 ? result.pp0_joules() : 0.0;
-            double pp1_joules = MEASURE_DOMAIN_PP1 ? result.pp1_joules() : 0.0;
-            double dram_joules = MEASURE_DOMAIN_DRAM ? result.dram_joules() : 0.0;
+            double pkg_joules = pkg_microjoules / 1000000.0;
+            double pp0_joules = pp0_microjoules / 1000000.0;
+            double pp1_joules = pp1_microjoules / 1000000.0;
+            double dram_joules = dram_microjoules / 1000000.0;
             double total_joules = pkg_joules + pp0_joules + pp1_joules + dram_joules;
 
             // Format and store CSV row
@@ -303,9 +266,9 @@ void Service::start(const std::string&) {
             snprintf(buffer, sizeof(buffer), 
                      "%s,%lu,%lu,%lu,%.3f,%.6f,%.3f,%.2f,%.2f,%.2f,%.2f,%.6f,%.3f,%.6f,%.3f,%.6f,%.3f,,,%.6f,%.3f",
                      benchmarks[b].name,
-                     result.cycles_elapsed,
-                     result.cycles_start,
-                     result.cycles_end,
+                     cycles_elapsed,
+                     cycles_start,
+                     cycles_end,
                      time_ns,
                      time_ms,
                      cooldown_ms,
