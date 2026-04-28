@@ -9,8 +9,8 @@
   measurePp1 ? true, # Measure PP1 RAPL domain
 
   includeos ? import (builtins.fetchGit {
-        url = "https://github.com/includeos/IncludeOS.git";
-        rev = "d39cb456b92925e7baf2505578099788518b0043";
+        url = "https://github.com/sondreross/IncludeOS.git"; # TODO: Change to official repo when possible
+        ref = "bench_func";
       }) { inherit smp; inherit withCcache; },
 }:
 let
