@@ -164,7 +164,7 @@ double wait_for_cooldown(double target_temp) {
 }
 
 void Service::start(const std::string&) {
-    const int repetitions = 50;
+    const int repetitions = BENCHMARK_REPETITIONS;
     std::vector<std::string> results;
     const double energy_unit = energy_bench::get_rapl_units();
     
@@ -180,14 +180,11 @@ void Service::start(const std::string&) {
         uint64_t pkg_therm_status = x86::CPU::read_msr(IA32_PACKAGE_THERM_STATUS);
         uint32_t digital_readout = (pkg_therm_status >> 16) & 0x7F;
         current_temp = tj_max - digital_readout;
-        printf("Warmup: Current package temperature: %.2f °C\n", current_temp);
     }
   
     // Run each benchmark
     for (size_t b = 0; b < sizeof(benchmarks) / sizeof(benchmarks[0]); b++) {
         for (int i = 0; i < repetitions; ++i) {
-            // Send 0x1b marker with benchmark name and repetition number
-            printf("\x1b%s,%d\n", benchmarks[b].name, i);
             
             // Wait for package temperature to be under 45 degrees
             double cooldown_ms = wait_for_cooldown(45.0);
@@ -285,9 +282,6 @@ void Service::start(const std::string&) {
                      total_joules,
                      total_joules * 1000);
             results.push_back(std::string(buffer));
-            
-            // Send 0x1b marker at the end
-            printf("\x1b%s,%d\n", benchmarks[b].name, i);
         }
     }
     
