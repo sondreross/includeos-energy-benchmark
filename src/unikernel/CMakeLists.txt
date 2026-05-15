@@ -7,6 +7,7 @@ find_package(IncludeOS)
 include(os)
 
 set(BENCHMARK_STATIC_LIB "" CACHE FILEPATH "Path to libenergy_benchmarks.a")
+set(BENCHMARK_REPETITIONS 50 CACHE STRING "Number of repetitions per benchmark")
 
 option(MEASURE_DOMAIN_PKG "Measure PKG RAPL domain" ON)
 option(MEASURE_DOMAIN_DRAM "Measure DRAM RAPL domain" OFF)
